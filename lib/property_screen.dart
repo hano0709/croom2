@@ -30,7 +30,7 @@ class _PropertyScreenState extends State<PropertyScreen> {
 
     if (propertyDoc.exists) {
       setState(() {
-        propertyData = propertyDoc.data() as Map<String, dynamic>?;
+        propertyData = propertyDoc.data() as Map<String, dynamic>?;  // Fetch property data
       });
       _checkIfSaved();  // Check if the property is saved
     }
@@ -73,13 +73,22 @@ class _PropertyScreenState extends State<PropertyScreen> {
   }
 
   void _makeCall(String phoneNumber) async {
+    print("Making call to: $phoneNumber");
     final Uri callUri = Uri.parse("tel:$phoneNumber");
-    if (await canLaunchUrl(callUri)) {
-      await launchUrl(callUri, mode: LaunchMode.externalApplication);
-    } else {
-      print("Could not launch call");
+    print("Call URI: $callUri");
+
+    try {
+      if (await canLaunchUrl(callUri)) {
+        await launchUrl(callUri, mode: LaunchMode.externalApplication);
+      } else {
+        print("Could not launch call");
+      }
+    } catch (e) {
+      print("Error launching call: $e");
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -95,13 +104,16 @@ class _PropertyScreenState extends State<PropertyScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 250.0, // Increased the height of the image slider
+              height: 200.0,
               child: PageView(
                 children: [
                   Image.network(
                     propertyData?['imageUrl'] ?? 'https://via.placeholder.com/400x200',
                     fit: BoxFit.cover,
                     width: double.infinity,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(child: Text('Image not available'));
+                    },
                   ),
                 ],
               ),
@@ -169,7 +181,12 @@ class _PropertyScreenState extends State<PropertyScreen> {
                 ),
                 ElevatedButton.icon(
                   onPressed: () {
-                    _makeCall(propertyData?['phone'] ?? '');
+                    String phone = propertyData?['phone'] ?? '';
+                    if (phone.isNotEmpty) {
+                      _makeCall(phone);
+                    } else {
+                      print("Phone number is not available.");
+                    }
                   },
                   icon: Icon(Icons.call),
                   label: Text("Call"),
