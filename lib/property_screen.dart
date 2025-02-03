@@ -17,6 +17,7 @@ class _PropertyScreenState extends State<PropertyScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   Map<String, dynamic>? propertyData;
   bool isSaved = false;  // Track if property is saved
+  List<Map<String, dynamic>> interestedUsers = []; // Store interested users
 
   @override
   void initState() {
@@ -33,6 +34,34 @@ class _PropertyScreenState extends State<PropertyScreen> {
         propertyData = propertyDoc.data() as Map<String, dynamic>?;  // Fetch property data
       });
       _checkIfSaved();  // Check if the property is saved
+      _fetchInterestedUsers();  // Fetch interested users
+    }
+  }
+
+  Future<void> _fetchInterestedUsers() async {
+    List<Map<String, dynamic>> usersList = [];
+    try {
+      // Query saved_properties collection to find users who saved this property
+      var snapshot = await _firestore.collection('saved_properties').get();
+
+      for (var userDoc in snapshot.docs) {
+        var userData = userDoc.data() as Map<String, dynamic>;
+
+        if (userData.containsKey(widget.propertyId)) {
+          // User has saved this property, now fetch their details from the 'users' collection
+          var userSnapshot = await _firestore.collection('users').doc(userDoc.id).get();
+          if (userSnapshot.exists) {
+            var user = userSnapshot.data() as Map<String, dynamic>;
+            usersList.add(user);
+          }
+        }
+      }
+
+      setState(() {
+        interestedUsers = usersList;
+      });
+    } catch (e) {
+      print('Error fetching interested users: $e');
     }
   }
 
@@ -73,9 +102,7 @@ class _PropertyScreenState extends State<PropertyScreen> {
   }
 
   void _makeCall(String phoneNumber) async {
-    print("Making call to: $phoneNumber");
     final Uri callUri = Uri.parse("tel:$phoneNumber");
-    print("Call URI: $callUri");
 
     try {
       if (await canLaunchUrl(callUri)) {
@@ -87,8 +114,6 @@ class _PropertyScreenState extends State<PropertyScreen> {
       print("Error launching call: $e");
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +189,7 @@ class _PropertyScreenState extends State<PropertyScreen> {
                   onPressed: _toggleSave,
                   icon: Icon(
                     isSaved ? Icons.favorite : Icons.favorite_border,
-                    color: isSaved ? Colors.red : Colors.grey,  // Change color based on state
+                    color: isSaved ? Colors.red : Colors.grey,
                   ),
                   label: Text(
                     isSaved ? "Saved" : "Save for Later",
@@ -230,6 +255,27 @@ class _PropertyScreenState extends State<PropertyScreen> {
               'Interested Users:',
               style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
             ),
+            if (interestedUsers.isEmpty)
+              Text('No users have saved this property.')
+            else
+              Column(
+                children: interestedUsers.map((user) {
+                  return Card(
+                    margin: EdgeInsets.symmetric(vertical: 8.0),
+                    elevation: 3.0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: NetworkImage(user['profileImage'] ?? ''),
+                      ),
+                      title: Text(user['name'] ?? 'Unknown'),
+                      subtitle: Text(user['college'] ?? 'Unknown'),
+                    ),
+                  );
+                }).toList(),
+              ),
           ],
         ),
       ),
