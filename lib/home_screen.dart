@@ -23,6 +23,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   bool _isLoading = true; // Loading state for roommates
 
+  // Search functionality variables
+  bool _isSearching = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +101,32 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
   }
 
+  // Method to filter hostel properties based on search query
+  List<Map<String, dynamic>> getFilteredHostels() {
+    return hostelProperties.where((hostel) {
+      return hostel['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          hostel['location'].toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
+  // Method to filter flat properties based on search query
+  List<Map<String, dynamic>> getFilteredFlats() {
+    return flatProperties.where((flat) {
+      return flat['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          flat['location'].toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
+  // Method to filter roommates based on search query
+  List<Map<String, dynamic>> getFilteredRoommates() {
+    return roommates.where((roommate) {
+      return roommate['name'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          roommate['college'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          roommate['year'].toString().contains(_searchQuery) ||
+          roommate['major'].toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,6 +142,20 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             );
           },
         ),
+        actions: [
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchQuery = '';
+                  _searchController.clear();
+                }
+              });
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: [
@@ -184,92 +229,118 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          ListView.builder(
-            itemCount: hostelProperties.length,
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PropertyScreen(
-                        propertyId: hostelProperties[index]['propertyId']!,
-                        property: hostelProperties[index],
-                      ),
-                    ),
-                  );
-                },
-                child: PropertyCard(
-                  title: hostelProperties[index]['title']!,
-                  price: hostelProperties[index]['price']!,
-                  location: hostelProperties[index]['location']!,
-                  imageUrl: hostelProperties[index]['imageUrl']!,
+          if (_isSearching)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search...',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.search),
                 ),
-              );
-            },
-          ),
-          ListView.builder(
-            itemCount: flatProperties.length,
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PropertyScreen(
-                        propertyId: flatProperties[index]['propertyId']!,
-                        property: flatProperties[index],
-                      ),
-                    ),
-                  );
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
                 },
-                child: PropertyCard(
-                  title: flatProperties[index]['title']!,
-                  price: flatProperties[index]['price']!,
-                  location: flatProperties[index]['location']!,
-                  imageUrl: flatProperties[index]['imageUrl']!,
-                ),
-              );
-            },
-          ),
-          _isLoading
-              ? Center(child: CircularProgressIndicator())
-              : ListView.builder(
-            itemCount: roommates.length,
-            itemBuilder: (context, index) {
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RoommateScreen(
-                        userId: roommates[index]['userId']!,
-                        roommate: roommates[index],
+              ),
+            ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                ListView.builder(
+                  itemCount: _isSearching ? getFilteredHostels().length : hostelProperties.length,
+                  itemBuilder: (context, index) {
+                    final hostel = _isSearching ? getFilteredHostels()[index] : hostelProperties[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PropertyScreen(
+                              propertyId: hostel['propertyId']!,
+                              property: hostel,
+                            ),
+                          ),
+                        );
+                      },
+                      child: PropertyCard(
+                        title: hostel['title']!,
+                        price: hostel['price']!,
+                        location: hostel['location']!,
+                        imageUrl: hostel['imageUrl']!,
                       ),
-                    ),
-                  );
-                },
-                child: Card(
-                  margin: EdgeInsets.all(8),
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.all(10),
-                    leading: CircleAvatar(
-                      radius: 30,
-                      backgroundImage: NetworkImage(roommates[index]['profileImage'] ??
-                          'https://via.placeholder.com/150'),
-                    ),
-                    title: Text(roommates[index]['name'] ?? 'Unknown'),
-                    subtitle: Text('${roommates[index]['age']} • ${roommates[index]['college']}'),
-                    trailing: Icon(Icons.arrow_forward_ios, size: 16),
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
+                ListView.builder(
+                  itemCount: _isSearching ? getFilteredFlats().length : flatProperties.length,
+                  itemBuilder: (context, index) {
+                    final flat = _isSearching ? getFilteredFlats()[index] : flatProperties[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PropertyScreen(
+                              propertyId: flat['propertyId']!,
+                              property: flat,
+                            ),
+                          ),
+                        );
+                      },
+                      child: PropertyCard(
+                        title: flat['title']!,
+                        price: flat['price']!,
+                        location: flat['location']!,
+                        imageUrl: flat['imageUrl']!,
+                      ),
+                    );
+                  },
+                ),
+                _isLoading
+                    ? Center(child: CircularProgressIndicator())
+                    : ListView.builder(
+                  itemCount: _isSearching ? getFilteredRoommates().length : roommates.length,
+                  itemBuilder: (context, index) {
+                    final roommate = _isSearching ? getFilteredRoommates()[index] : roommates[index];
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => RoommateScreen(
+                              userId: roommate['userId']!,
+                              roommate: roommate,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Card(
+                        margin: EdgeInsets.all(8),
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.all(10),
+                          leading: CircleAvatar(
+                            radius: 30,
+                            backgroundImage: NetworkImage(roommate['profileImage'] ??
+                                'https://via.placeholder.com/150'),
+                          ),
+                          title: Text(roommate['name'] ?? 'Unknown'),
+                          subtitle: Text('${roommate['age']} • ${roommate['college']}'),
+                          trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),
