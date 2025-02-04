@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'roommate_screen.dart';
 
 class PropertyScreen extends StatefulWidget {
   final String propertyId;
@@ -16,8 +17,8 @@ class _PropertyScreenState extends State<PropertyScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   Map<String, dynamic>? propertyData;
-  bool isSaved = false;  // Track if property is saved
-  List<Map<String, dynamic>> interestedUsers = []; // Store interested users
+  bool isSaved = false;
+  List<Map<String, dynamic>> interestedUsers = [];
 
   @override
   void initState() {
@@ -31,27 +32,26 @@ class _PropertyScreenState extends State<PropertyScreen> {
 
     if (propertyDoc.exists) {
       setState(() {
-        propertyData = propertyDoc.data() as Map<String, dynamic>?;  // Fetch property data
+        propertyData = propertyDoc.data() as Map<String, dynamic>?;
       });
-      _checkIfSaved();  // Check if the property is saved
-      _fetchInterestedUsers();  // Fetch interested users
+      _checkIfSaved();
+      _fetchInterestedUsers();
     }
   }
 
   Future<void> _fetchInterestedUsers() async {
     List<Map<String, dynamic>> usersList = [];
     try {
-      // Query saved_properties collection to find users who saved this property
       var snapshot = await _firestore.collection('saved_properties').get();
 
       for (var userDoc in snapshot.docs) {
         var userData = userDoc.data() as Map<String, dynamic>;
 
         if (userData.containsKey(widget.propertyId)) {
-          // User has saved this property, now fetch their details from the 'users' collection
           var userSnapshot = await _firestore.collection('users').doc(userDoc.id).get();
           if (userSnapshot.exists) {
             var user = userSnapshot.data() as Map<String, dynamic>;
+            user['userId'] = userDoc.id; // Store user ID for navigation
             usersList.add(user);
           }
         }
@@ -85,12 +85,10 @@ class _PropertyScreenState extends State<PropertyScreen> {
     User? user = _auth.currentUser;
     if (user != null && propertyData != null) {
       if (isSaved) {
-        // Unsaving the property
         await _firestore.collection('saved_properties').doc(user.uid).update({
           widget.propertyId: FieldValue.delete(),
         });
       } else {
-        // Saving the property
         await _firestore.collection('saved_properties').doc(user.uid).set({
           widget.propertyId: propertyData,
         }, SetOptions(merge: true));
@@ -175,7 +173,7 @@ class _PropertyScreenState extends State<PropertyScreen> {
                     style: TextStyle(
                       fontSize: 22.0,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green[700], // Highlighted in dark green
+                      color: Colors.green[700],
                     ),
                   ),
                 ],
@@ -239,10 +237,7 @@ class _PropertyScreenState extends State<PropertyScreen> {
                 children: List<Widget>.from(
                   (propertyData!['facilities'] as List).map(
                         (facility) => Chip(
-                      label: Text(
-                        facility,
-                        style: TextStyle(fontSize: 14.0),
-                      ),
+                      label: Text(facility, style: TextStyle(fontSize: 14.0)),
                       backgroundColor: Colors.blue.shade100,
                     ),
                   ),
@@ -251,31 +246,42 @@ class _PropertyScreenState extends State<PropertyScreen> {
             else
               Text('No facilities listed.'),
             Divider(height: 32.0),
-            Text(
-              'Interested Users:',
-              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-            ),
-            if (interestedUsers.isEmpty)
-              Text('No users have saved this property.')
-            else
-              Column(
-                children: interestedUsers.map((user) {
-                  return Card(
-                    margin: EdgeInsets.symmetric(vertical: 8.0),
-                    elevation: 3.0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
+            Text('Interested Users:', style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold)),
+            interestedUsers.isEmpty
+                ? Text('No users have saved this property.')
+                : ListView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: interestedUsers.length,
+              itemBuilder: (context, index) {
+                final user = interestedUsers[index];
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RoommateScreen(userId: user['userId'], roommate: user),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    margin: EdgeInsets.all(8),
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     child: ListTile(
+                      contentPadding: EdgeInsets.all(10),
                       leading: CircleAvatar(
+                        radius: 30,
                         backgroundImage: NetworkImage(user['profileImage'] ?? ''),
                       ),
                       title: Text(user['name'] ?? 'Unknown'),
-                      subtitle: Text(user['college'] ?? 'Unknown'),
+                      subtitle: Text('${user['age']} • ${user['college']}'),
+                      trailing: Icon(Icons.arrow_forward_ios, size: 16),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
