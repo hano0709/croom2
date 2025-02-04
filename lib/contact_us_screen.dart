@@ -1,64 +1,103 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ContactUsScreen extends StatelessWidget {
+  const ContactUsScreen({Key? key}) : super(key: key);
+
+  Future<void> _launchContact(BuildContext context, String contact, bool isPhone) async {
+    final Uri uri = isPhone
+        ? Uri.parse('tel:$contact')
+        : Uri.parse('mailto:$contact');
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not launch $contact')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Contact Us'),
+        title: const Text('Contact Us'),
+        centerTitle: true,
+        elevation: 0,
       ),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Heading
-            Text(
-              'Customer Care',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.blue,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.blue,
+                  child: Icon(
+                    Icons.support_agent,
+                    size: 70,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-            ),
-            SizedBox(height: 20),
-
-            // Phone Number Section
-            Text(
-              'Phone Number:',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 30),
+              _buildContactCard(
+                context: context,
+                icon: Icons.phone,
+                title: 'Phone Number',
+                subtitle: '+1 800 123 4567',
+                onTap: () => _launchContact(context, '+1 800 123 4567', true),
               ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              '+1 800 123 4567', // Dummy phone number
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.black54,
+              const SizedBox(height: 16),
+              _buildContactCard(
+                context: context,
+                icon: Icons.email,
+                title: 'Email',
+                subtitle: 'support@croom.com',
+                onTap: () => _launchContact(context, 'support@croom.com', false),
               ),
-            ),
-            SizedBox(height: 20),
-
-            // Email Section
-            Text(
-              'Email:',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'support@croom.com', // Dummy email
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.black54,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildContactCard({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.blue.shade50,
+          child: Icon(icon, color: Colors.blue),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: const TextStyle(
+            color: Colors.black54,
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
   }
