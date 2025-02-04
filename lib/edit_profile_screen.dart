@@ -1,7 +1,7 @@
-import 'package:croom2/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'profile_screen.dart';
 
 class EditProfileScreen extends StatefulWidget {
   @override
@@ -13,64 +13,60 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Controllers for text fields
-  TextEditingController nameController = TextEditingController();
-  TextEditingController emailController = TextEditingController();
-  TextEditingController phoneController = TextEditingController();
-  TextEditingController ageController = TextEditingController();
-  TextEditingController collegeController = TextEditingController();
-  TextEditingController majorController = TextEditingController();
-  TextEditingController yearController = TextEditingController();
-  TextEditingController preferencesController = TextEditingController();
+  // Controllers
+  late TextEditingController nameController;
+  late TextEditingController emailController;
+  late TextEditingController phoneController;
+  late TextEditingController ageController;
+  late TextEditingController collegeController;
+  late TextEditingController majorController;
+  late TextEditingController yearController;
+  late TextEditingController preferencesController;
 
   String? gender;
-
-  // List of Cloudinary Avatar URLs
-  final List<String> avatarUrls = [
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343894/user8_mc1wb5.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343894/user9_g0yqm2.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user7_fa8ayj.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user6_l4gdxj.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user4_weh0g9.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user5_xuct7q.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user3_s9eb8j.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user1_l10igo.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user2_h4pque.jpg',
-    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user0_n56lbh.jpg',
-  ];
-
   String? _selectedAvatarUrl;
+
+  final List<String> avatarUrls = [/* your avatar URLs */];
 
   @override
   void initState() {
     super.initState();
+    _initializeControllers();
     _loadUserData();
   }
 
-  // Load user data from Firestore if exists
+  void _initializeControllers() {
+    nameController = TextEditingController();
+    emailController = TextEditingController();
+    phoneController = TextEditingController();
+    ageController = TextEditingController();
+    collegeController = TextEditingController();
+    majorController = TextEditingController();
+    yearController = TextEditingController();
+    preferencesController = TextEditingController();
+  }
+
   Future<void> _loadUserData() async {
     User? user = _auth.currentUser;
     if (user != null) {
-      DocumentSnapshot userDoc =
-      await _firestore.collection('users').doc(user.uid).get();
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(user.uid).get();
       if (userDoc.exists) {
         setState(() {
           nameController.text = userDoc['name'] ?? '';
           emailController.text = userDoc['email'] ?? '';
           phoneController.text = userDoc['phone'] ?? '';
-          gender = userDoc['gender'] ?? '';
+          gender = userDoc['gender'];
           ageController.text = userDoc['age'] ?? '';
           collegeController.text = userDoc['college'] ?? '';
           majorController.text = userDoc['major'] ?? '';
           yearController.text = userDoc['year'] ?? '';
           preferencesController.text = userDoc['preferences'] ?? '';
-          _selectedAvatarUrl = userDoc['profileImage'] ?? avatarUrls[0]; // Set default if null
+          _selectedAvatarUrl = userDoc['profileImage'] ?? avatarUrls[0];
         });
       }
     }
   }
 
-  // Save user data to Firestore
   Future<void> _saveUserData() async {
     if (_formKey.currentState!.validate()) {
       User? user = _auth.currentUser;
@@ -88,7 +84,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           'profileImage': _selectedAvatarUrl,
         });
 
-        // Navigate to Profile Screen after saving
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => ProfileScreen()),
@@ -98,74 +93,84 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    ageController.dispose();
+    collegeController.dispose();
+    majorController.dispose();
+    yearController.dispose();
+    preferencesController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final Color primary = Color(0xFF6B9080);
+    final Color surface = Color(0xFFF8F9FA);
+
     return Scaffold(
-      appBar: AppBar(title: Text("Edit Profile")),
-      resizeToAvoidBottomInset: true, // Ensure layout adjusts with keyboard
-      body: SingleChildScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag, // Dismiss keyboard on drag
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
+      appBar: AppBar(
+        title: Text('Edit Profile',
+            style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.black54),
+      ),
+      body: Container(
+        color: surface,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(24),
           child: Form(
             key: _formKey,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Profile Image Selection
-                Text('Choose a Profile Image', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                SizedBox(height: 10),
+                _buildAvatarGrid(primary),
+                SizedBox(height: 32),
+                _buildSection('Personal Information', Icons.person_outline, primary),
+                _buildTextField(nameController, 'Full Name', Icons.person, primary),
+                _buildTextField(emailController, 'Email', Icons.email, primary),
+                _buildTextField(phoneController, 'Phone', Icons.phone, primary),
+                _buildGenderPicker(primary),
+                _buildTextField(ageController, 'Age', Icons.cake, primary),
 
-                // Wrap the avatar selection with a Wrap widget
-                Wrap(
-                  spacing: 8.0,  // Horizontal spacing between avatars
-                  runSpacing: 8.0,  // Vertical spacing between avatars (if they wrap to the next line)
-                  children: avatarUrls.map((url) {
-                    bool isSelected = _selectedAvatarUrl == url; // Check if avatar is selected
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedAvatarUrl = url;  // Set the selected avatar
-                        });
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0), // Add padding for spacing
-                        child: CircleAvatar(
-                          radius: 30,
-                          backgroundImage: NetworkImage(url),
-                          backgroundColor: Colors.transparent,
-                          child: isSelected
-                              ? Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.blueAccent, // Add a blue border when selected
-                                width: 4, // Border width
-                              ),
-                            ),
-                          )
-                              : null,  // No decoration when not selected
+                SizedBox(height: 24),
+                _buildSection('Education', Icons.school_outlined, primary),
+                _buildTextField(collegeController, 'College', Icons.school, primary),
+                _buildTextField(majorController, 'Major', Icons.work, primary),
+                _buildTextField(yearController, 'Year', Icons.calendar_today, primary),
+
+                SizedBox(height: 24),
+                _buildSection('Preferences', Icons.favorite_outline, primary),
+                _buildTextField(preferencesController,
+                    'Roommate Preferences', Icons.favorite, primary),
+
+                // Save button at the bottom
+                Padding(
+                  padding: EdgeInsets.only(top: 32),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _saveUserData,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primary,
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-                SizedBox(height: 20),
-
-                // Profile Form
-                buildTextField("Name", nameController),
-                buildTextField("Email", emailController),
-                buildTextField("Phone", phoneController),
-                buildGenderSelection(),
-                buildTextField("Age", ageController),
-                buildTextField("College", collegeController),
-                buildTextField("Major", majorController),
-                buildTextField("Year", yearController),
-                buildTextField("Preferences", preferencesController),
-
-                SizedBox(height: 20),
-
-                ElevatedButton(
-                  onPressed: _saveUserData,
-                  child: Text("Save Changes"),
+                      child: Text(
+                        'SAVE CHANGES',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -175,46 +180,135 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget buildTextField(String label, TextEditingController controller) {
+  Widget _buildSection(String title, IconData icon, Color color) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          SizedBox(width: 12),
+          Text(title,
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarGrid(Color primary) {
+    return Column(
+      children: [
+        Text('Select Avatar',
+            style: TextStyle(fontSize: 16, color: Colors.black54)),
+        SizedBox(height: 16),
+        Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: avatarUrls.map((url) {
+            final isSelected = _selectedAvatarUrl == url;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedAvatarUrl = url),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? primary : Colors.grey[300]!,
+                    width: 2,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 32,
+                  backgroundImage: NetworkImage(url),
+                  child: isSelected
+                      ? Icon(Icons.check_circle_rounded,
+                      color: primary, size: 28)
+                      : null,
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller,
+      String label, IconData icon, Color primary) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(),
+          prefixIcon: Icon(icon, color: Colors.black54),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey[300]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: primary, width: 2),
+          ),
+          contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
         ),
       ),
     );
   }
 
-  Widget buildGenderSelection() {
+  Widget _buildGenderPicker(Color primary) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
           Expanded(
-            child: RadioListTile<String>(
-              title: Text('Male'),
-              value: 'Male',
-              groupValue: gender,
-              onChanged: (value) {
-                setState(() {
-                  gender = value;
-                });
-              },
+            child: OutlinedButton(
+              onPressed: () => setState(() => gender = 'Male'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: gender == 'Male'
+                    ? primary.withOpacity(0.1)
+                    : Colors.white,
+                side: BorderSide(
+                    color: gender == 'Male' ? primary : Colors.grey[300]!,
+                    width: 1.5
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: Text('Male',
+                  style: TextStyle(
+                      color: gender == 'Male' ? primary : Colors.black87)),
             ),
           ),
+          SizedBox(width: 16),
           Expanded(
-            child: RadioListTile<String>(
-              title: Text('Female'),
-              value: 'Female',
-              groupValue: gender,
-              onChanged: (value) {
-                setState(() {
-                  gender = value;
-                });
-              },
+            child: OutlinedButton(
+              onPressed: () => setState(() => gender = 'Female'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: gender == 'Female'
+                    ? primary.withOpacity(0.1)
+                    : Colors.white,
+                side: BorderSide(
+                    color: gender == 'Female' ? primary : Colors.grey[300]!,
+                    width: 1.5
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: Text('Female',
+                  style: TextStyle(
+                      color: gender == 'Female' ? primary : Colors.black87)),
             ),
           ),
         ],
