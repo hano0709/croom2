@@ -26,7 +26,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? gender;
   String? _selectedAvatarUrl;
 
-  final List<String> avatarUrls = [/* your avatar URLs */];
+  final List<String> avatarUrls = [
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343894/user8_mc1wb5.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343894/user9_g0yqm2.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user7_fa8ayj.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user6_l4gdxj.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user4_weh0g9.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738343893/user5_xuct7q.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user3_s9eb8j.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user1_l10igo.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user2_h4pque.jpg',
+    'https://res.cloudinary.com/doqo1sf9g/image/upload/v1738340295/user0_n56lbh.jpg',
+  ];
 
   @override
   void initState() {
