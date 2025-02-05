@@ -3,17 +3,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RoommateScreen extends StatelessWidget {
   final String userId;
+  final Color primary = Color(0xFF6B9080);
+  final Color surface = Color(0xFFF8F9FA);
 
   RoommateScreen({required this.userId, required Map<String, dynamic> roommate});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: surface,
       body: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return Center(child: CircularProgressIndicator(color: primary));
           }
           if (!snapshot.hasData || !snapshot.data!.exists) {
             return Center(child: Text('Roommate data not found'));
@@ -23,8 +26,9 @@ class RoommateScreen extends StatelessWidget {
           return CustomScrollView(
             slivers: [
               SliverAppBar(
-                expandedHeight: 300,
+                expandedHeight: 280,
                 pinned: true,
+                backgroundColor: Colors.white,
                 flexibleSpace: FlexibleSpaceBar(
                   titlePadding: EdgeInsetsDirectional.only(start: 0, bottom: 16),
                   centerTitle: true,
@@ -35,35 +39,23 @@ class RoommateScreen extends StatelessWidget {
                       Text(
                         roommate['name'] ?? 'Unknown',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            Shadow(
-                              blurRadius: 10.0,
-                              color: Colors.black54,
-                              offset: Offset(2.0, 2.0),
-                            )
-                          ],
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 24,
                         ),
                       ),
                       SizedBox(height: 4),
                       Text(
                         roommate['college'] ?? 'Unknown College',
                         style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
+                          color: Colors.black54,
+                          fontSize: 16,
                         ),
                       ),
                     ],
                   ),
                   background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.blue.shade300, Colors.blue.shade700],
-                      ),
-                    ),
+                    color: primary.withOpacity(0.1),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -71,10 +63,13 @@ class RoommateScreen extends StatelessWidget {
                           top: 80,
                           child: CircleAvatar(
                             radius: 80,
-                            backgroundImage: NetworkImage(
-                              roommate['profileImage'] ?? 'https://via.placeholder.com/150',
+                            backgroundColor: primary.withOpacity(0.2),
+                            child: CircleAvatar(
+                              radius: 76,
+                              backgroundImage: NetworkImage(
+                                roommate['profileImage'] ?? 'https://via.placeholder.com/150',
+                              ),
                             ),
-                            backgroundColor: Colors.white,
                           ),
                         ),
                       ],
@@ -83,18 +78,20 @@ class RoommateScreen extends StatelessWidget {
                 ),
               ),
               SliverPadding(
-                padding: EdgeInsets.all(16.0),
+                padding: EdgeInsets.all(24.0),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildSectionTitle('Basic Details'),
+                    SizedBox(height: 16),
                     _buildDetailCard({
                       'Gender': roommate['gender'] ?? 'Not specified',
                       'Age': roommate['age'] ?? 'Not specified',
                       'Year': roommate['year'] ?? 'Not specified',
                       'Major': roommate['major'] ?? 'Not specified',
                     }),
-                    SizedBox(height: 16),
+                    SizedBox(height: 24),
                     _buildSectionTitle('Preferences'),
+                    SizedBox(height: 16),
                     _buildPreferencesCard(roommate['preferences'] ?? 'No preferences specified'),
                   ]),
                 ),
@@ -105,49 +102,65 @@ class RoommateScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showMessageDialog(context, userId),
-        icon: Icon(Icons.message),
+        icon: Icon(Icons.message, color: Colors.white),
         label: Text('Message', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.blue.shade600,
+        backgroundColor: primary,
       ),
     );
   }
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: Colors.blue.shade700,
-        ),
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: primary, size: 24),
+          SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDetailCard(Map<String, String> details) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[300]!),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          children: details.entries.map((entry) =>
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${entry.key}:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    Text(entry.value),
-                  ],
+          children: details.entries.map((entry) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '${entry.key}:',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black54
+                  ),
                 ),
-              )
-          ).toList(),
+                Text(
+                  entry.value,
+                  style: TextStyle(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
         ),
       ),
     );
@@ -155,13 +168,20 @@ class RoommateScreen extends StatelessWidget {
 
   Widget _buildPreferencesCard(String preferences) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[300]!),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Text(
           preferences,
-          style: TextStyle(fontSize: 16),
+          style: TextStyle(
+              fontSize: 16,
+              color: Colors.black87,
+              height: 1.4
+          ),
         ),
       ),
     );
@@ -172,16 +192,34 @@ class RoommateScreen extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Message Roommate'),
-          content: Text('Send a message to this roommate.'),
+          title: Text('Message Roommate', style: TextStyle(color: Colors.black87)),
+          content: TextField(
+            decoration: InputDecoration(
+              hintText: 'Type your message...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: primary, width: 2),
+              ),
+            ),
+            maxLines: 4,
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Close'),
+              child: Text('Cancel', style: TextStyle(color: Colors.black54)),
             ),
-            TextButton(
-              onPressed: () { /* Implement messaging logic */ },
-              child: Text('Send'),
+            ElevatedButton(
+              onPressed: () {/* Implement messaging logic */},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text('Send', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
