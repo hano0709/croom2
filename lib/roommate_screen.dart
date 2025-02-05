@@ -1,3 +1,4 @@
+import 'package:croom2/chat_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -6,7 +7,7 @@ class RoommateScreen extends StatelessWidget {
   final Color primary = Color(0xFF6B9080);
   final Color surface = Color(0xFFF8F9FA);
 
-  RoommateScreen({required this.userId, required Map<String, dynamic> roommate});
+  RoommateScreen({required this.userId});
 
   @override
   Widget build(BuildContext context) {
@@ -100,11 +101,25 @@ class RoommateScreen extends StatelessWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showMessageDialog(context, userId),
-        icon: Icon(Icons.message, color: Colors.white),
-        label: Text('Message', style: TextStyle(color: Colors.white)),
-        backgroundColor: primary,
+      floatingActionButton: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return Container();
+          }
+
+          var roommate = snapshot.data!.data() as Map<String, dynamic>;
+          return FloatingActionButton.extended(
+            onPressed: () => _showMessageDialog(
+                context,
+                userId,
+                roommate['name'] ?? 'Roommate'
+            ),
+            icon: Icon(Icons.message, color: Colors.white),
+            label: Text('Message', style: TextStyle(color: Colors.white)),
+            backgroundColor: primary,
+          );
+        },
       ),
     );
   }
@@ -187,43 +202,15 @@ class RoommateScreen extends StatelessWidget {
     );
   }
 
-  void _showMessageDialog(BuildContext context, String userId) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Message Roommate', style: TextStyle(color: Colors.black87)),
-          content: TextField(
-            decoration: InputDecoration(
-              hintText: 'Type your message...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: primary, width: 2),
-              ),
-            ),
-            maxLines: 4,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancel', style: TextStyle(color: Colors.black54)),
-            ),
-            ElevatedButton(
-              onPressed: () {/* Implement messaging logic */},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text('Send', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
+  void _showMessageDialog(BuildContext context, String roomateId, String roommateName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+            roomateId: roomateId,
+            roommateName: roommateName
+        ),
+      ),
     );
   }
 }

@@ -338,7 +338,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             MaterialPageRoute(
                               builder: (context) => RoommateScreen(
                                 userId: roommate['userId']!,
-                                roommate: roommate,
                               ),
                             ),
                           );

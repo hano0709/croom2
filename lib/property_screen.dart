@@ -279,7 +279,6 @@ class _PropertyScreenState extends State<PropertyScreen> {
                                   MaterialPageRoute(
                                     builder: (context) => RoommateScreen(
                                       userId: user['userId'],
-                                      roommate: user,
                                     ),
                                   ),
                                 );
