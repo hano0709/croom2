@@ -6,8 +6,9 @@ import 'roommate_screen.dart';
 
 class PropertyScreen extends StatefulWidget {
   final String propertyId;
+  final Map<String, dynamic> property;
 
-  PropertyScreen({required this.propertyId, required Map<String, dynamic> property});
+  PropertyScreen({required this.propertyId, required this.property});
 
   @override
   _PropertyScreenState createState() => _PropertyScreenState();
@@ -72,16 +73,14 @@ class _PropertyScreenState extends State<PropertyScreen> {
       await _firestore.collection('saved_properties').doc(user.uid).get();
       if (savedDoc.exists && savedDoc.data() != null) {
         Map<String, dynamic> savedProperties = savedDoc.data() as Map<String, dynamic>;
-        if (savedProperties.containsKey(widget.propertyId)) {
-          setState(() {
-            isSaved = true;
-          });
-        }
+        setState(() {
+          isSaved = savedProperties.containsKey(widget.propertyId);
+        });
       }
     }
   }
 
-  void _toggleSave() async {
+  Future<void> _toggleSave() async {
     User? user = _auth.currentUser;
     if (user != null && propertyData != null) {
       if (isSaved) {
@@ -96,12 +95,12 @@ class _PropertyScreenState extends State<PropertyScreen> {
       setState(() {
         isSaved = !isSaved;
       });
+      _fetchInterestedUsers(); // Refresh the list after toggling
     }
   }
 
-  void _makeCall(String phoneNumber) async {
+  Future<void> _makeCall(String phoneNumber) async {
     final Uri callUri = Uri.parse("tel:$phoneNumber");
-
     try {
       if (await canLaunchUrl(callUri)) {
         await launchUrl(callUri, mode: LaunchMode.externalApplication);
@@ -115,175 +114,264 @@ class _PropertyScreenState extends State<PropertyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Color primary = Color(0xFF6B9080);
+    final Color surface = Color(0xFFF8F9FA);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(propertyData?['title'] ?? 'Property Details'),
+        title: Text(
+          propertyData?['title'] ?? 'Property Details',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.black54),
       ),
       body: propertyData == null
-          ? Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 200.0,
-              child: PageView(
-                children: [
-                  Image.network(
-                    propertyData?['imageUrl'] ?? 'https://via.placeholder.com/400x200',
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Center(child: Text('Image not available'));
-                    },
-                  ),
-                ],
+          ? Center(child: CircularProgressIndicator(color: primary))
+          : Container(
+        color: surface,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Property Image
+              Container(
+                height: 250.0,
+                width: double.infinity,
+                child: Image.network(
+                  propertyData?['imageUrl'] ?? 'https://via.placeholder.com/400x200',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Icon(Icons.error_outline, size: 50, color: Colors.grey),
+                    );
+                  },
+                ),
               ),
-            ),
-            SizedBox(height: 16.0),
-            Container(
-              padding: EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12.0),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 6.0,
-                    spreadRadius: 2.0,
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Location: ${propertyData?['location'] ?? 'N/A'}',
-                    style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500),
-                  ),
-                  SizedBox(height: 8.0),
-                  Text(
-                    'Type: ${propertyData?['type'] ?? 'N/A'}',
-                    style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.w500),
-                  ),
-                  SizedBox(height: 8.0),
-                  Text(
-                    'Price: ${propertyData?['price'] ?? 'N/A'}',
-                    style: TextStyle(
-                      fontSize: 22.0,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green[700],
+
+              // Main Content
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Price and Save Button Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Rs. ${propertyData?['price'] ?? 'N/A'}',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: primary,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _toggleSave,
+                          icon: Icon(
+                            isSaved ? Icons.favorite : Icons.favorite_border,
+                            color: isSaved ? Colors.red : Colors.grey,
+                            size: 28,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    SizedBox(height: 24),
+
+                    // Property Details Section
+                    _buildSection('Property Details', Icons.home_outlined, primary),
+                    _buildDetailTile('Location', propertyData?['location'] ?? 'N/A', Icons.location_on, primary),
+                    _buildDetailTile('Type', propertyData?['type'] ?? 'N/A', Icons.apartment, primary),
+
+                    SizedBox(height: 24),
+
+                    // Facilities Section
+                    _buildSection('Facilities', Icons.local_offer_outlined, primary),
+                    if (propertyData?['facilities'] != null && propertyData!['facilities'] is List)
+                      Wrap(
+                        spacing: 8.0,
+                        runSpacing: 8.0,
+                        children: List<Widget>.from(
+                          (propertyData!['facilities'] as List).map(
+                                (facility) => Chip(
+                              label: Text(
+                                facility,
+                                style: TextStyle(color: primary),
+                              ),
+                              backgroundColor: primary.withOpacity(0.1),
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Text('No facilities listed.'),
+
+                    SizedBox(height: 24),
+
+                    // Contact Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          String phone = propertyData?['phone'] ?? '';
+                          if (phone.isNotEmpty) {
+                            _makeCall(phone);
+                          }
+                        },
+                        icon: Icon(Icons.call),
+                        label: Text(
+                          'CONTACT OWNER',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primary,
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 24),
+
+                    // Interested Users Section
+                    _buildSection('Interested Users', Icons.people_outline, primary),
+                    if (interestedUsers.isEmpty)
+                      Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'No users have saved this property yet.',
+                            style: TextStyle(color: Colors.black54),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount: interestedUsers.length,
+                        itemBuilder: (context, index) {
+                          final user = interestedUsers[index];
+                          return Container(
+                            margin: EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: ListTile(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => RoommateScreen(
+                                      userId: user['userId'],
+                                      roommate: user,
+                                    ),
+                                  ),
+                                );
+                              },
+                              contentPadding: EdgeInsets.all(12),
+                              leading: CircleAvatar(
+                                radius: 30,
+                                backgroundImage: NetworkImage(user['profileImage'] ?? ''),
+                              ),
+                              title: Text(
+                                user['name'] ?? 'Unknown',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${user['age']} • ${user['college']}',
+                                style: TextStyle(color: Colors.black54),
+                              ),
+                              trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection(String title, IconData icon, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          SizedBox(width: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
             ),
-            SizedBox(height: 16.0),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailTile(String label, String value, IconData icon, Color primary) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.black54, size: 20),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ElevatedButton.icon(
-                  onPressed: _toggleSave,
-                  icon: Icon(
-                    isSaved ? Icons.favorite : Icons.favorite_border,
-                    color: isSaved ? Colors.red : Colors.grey,
-                  ),
-                  label: Text(
-                    isSaved ? "Saved" : "Save for Later",
-                    style: TextStyle(color: isSaved ? Colors.red : Colors.black),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: isSaved ? Colors.white : Colors.red,
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                      side: BorderSide(color: Colors.red),
-                    ),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontSize: 14,
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    String phone = propertyData?['phone'] ?? '';
-                    if (phone.isNotEmpty) {
-                      _makeCall(phone);
-                    } else {
-                      print("Phone number is not available.");
-                    }
-                  },
-                  icon: Icon(Icons.call),
-                  label: Text("Call"),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.green,
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                      side: BorderSide(color: Colors.green),
-                    ),
+                SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            Divider(height: 32.0),
-            Text(
-              'Facilities:',
-              style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8.0),
-            if (propertyData?['facilities'] != null && propertyData!['facilities'] is List)
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: List<Widget>.from(
-                  (propertyData!['facilities'] as List).map(
-                        (facility) => Chip(
-                      label: Text(facility, style: TextStyle(fontSize: 14.0)),
-                      backgroundColor: Colors.blue.shade100,
-                    ),
-                  ),
-                ),
-              )
-            else
-              Text('No facilities listed.'),
-            Divider(height: 32.0),
-            Text('Interested Users:', style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold)),
-            interestedUsers.isEmpty
-                ? Text('No users have saved this property.')
-                : ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: interestedUsers.length,
-              itemBuilder: (context, index) {
-                final user = interestedUsers[index];
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RoommateScreen(userId: user['userId'], roommate: user),
-                      ),
-                    );
-                  },
-                  child: Card(
-                    margin: EdgeInsets.all(8),
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    child: ListTile(
-                      contentPadding: EdgeInsets.all(10),
-                      leading: CircleAvatar(
-                        radius: 30,
-                        backgroundImage: NetworkImage(user['profileImage'] ?? ''),
-                      ),
-                      title: Text(user['name'] ?? 'Unknown'),
-                      subtitle: Text('${user['age']} • ${user['college']}'),
-                      trailing: Icon(Icons.arrow_forward_ios, size: 16),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
