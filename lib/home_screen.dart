@@ -2,11 +2,11 @@ import 'package:croom2/contact_us_screen.dart';
 import 'package:croom2/profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'faq_screen.dart'; // Import FAQScreen
-import 'property_card.dart'; // Import PropertyCard widget
-import 'property_screen.dart'; // Import PropertyScreen
-import 'roommate_screen.dart'; // Import RoommateScreen
-import 'saved_properties.dart'; // Import SavedPropertiesScreen
+import 'faq_screen.dart';
+import 'property_card.dart';
+import 'property_screen.dart';
+import 'roommate_screen.dart';
+import 'saved_properties.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -15,18 +15,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   TabController? _tabController;
+  final Color primary = Color(0xFF6B9080);
+  final Color surface = Color(0xFFF8F9FA);
 
-  // Firestore data lists
   List<Map<String, dynamic>> hostelProperties = [];
   List<Map<String, dynamic>> flatProperties = [];
   List<Map<String, dynamic>> roommates = [];
 
-  bool _isLoading = true; // Loading state for roommates
-
-  // Search functionality variables
+  bool _isLoading = true;
   bool _isSearching = false;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+
+  // Sorting/Filtering state
+  String _sortOrder = 'none';
+  List<String> _selectedFacilities = [];
+  List<String> _availableFacilities = [];
 
   @override
   void initState() {
@@ -36,53 +40,213 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     fetchRoommates();
   }
 
-  // Fetch properties from Firestore
+  int _parsePrice(String price) {
+    final numericString = price.replaceAll(RegExp(r'[^0-9]'), '');
+    return int.tryParse(numericString) ?? 0;
+  }
+
   Future<void> fetchProperties() async {
-    // Fetch hostel properties
     var hostelSnapshot = await FirebaseFirestore.instance
         .collection('properties')
         .where('type', isEqualTo: 'hostel')
         .get();
 
-    // Fetch flat properties
     var flatSnapshot = await FirebaseFirestore.instance
         .collection('properties')
         .where('type', isEqualTo: 'flat')
         .get();
 
-    setState(() {
-      hostelProperties = hostelSnapshot.docs
-          .map((doc) => {
-        'propertyId': doc.id,
-        'title': doc['title'],
-        'price': doc['price'],
-        'location': doc['location'],
-        'imageUrl': doc['imageUrl'],
-      })
-          .toList();
+    final allFacilities = <String>{};
+    hostelSnapshot.docs.forEach((doc) => allFacilities.addAll(List<String>.from(doc['facilities'] ?? [])));
+    flatSnapshot.docs.forEach((doc) => allFacilities.addAll(List<String>.from(doc['facilities'] ?? [])));
 
-      flatProperties = flatSnapshot.docs
-          .map((doc) => {
+    setState(() {
+      hostelProperties = hostelSnapshot.docs.map((doc) => {
         'propertyId': doc.id,
-        'title': doc['title'],
-        'price': doc['price'],
-        'location': doc['location'],
-        'imageUrl': doc['imageUrl'],
-      })
-          .toList();
+        'title': doc['title'] ?? 'No Title',
+        'price': doc['price'] ?? 'Price Not Available',
+        'location': doc['location'] ?? 'Location Not Specified',
+        'imageUrl': doc['imageUrl'] ?? 'https://via.placeholder.com/150',
+        'facilities': doc['facilities'] ?? [],
+      }).toList();
+
+      flatProperties = flatSnapshot.docs.map((doc) => {
+        'propertyId': doc.id,
+        'title': doc['title'] ?? 'No Title',
+        'price': doc['price'] ?? 'Price Not Available',
+        'location': doc['location'] ?? 'Location Not Specified',
+        'imageUrl': doc['imageUrl'] ?? 'https://via.placeholder.com/150',
+        'facilities': doc['facilities'] ?? [],
+      }).toList();
+
+      _availableFacilities = allFacilities.toList()..sort();
     });
   }
 
-  // Fetch roommates data from Firestore
+  void _showSortDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Sort By', style: TextStyle(color: primary)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text('Price: Low to High'),
+                leading: Radio(
+                  value: 'lowToHigh',
+                  groupValue: _sortOrder,
+                  onChanged: (String? value) {
+                    setState(() => _sortOrder = value!);
+                    Navigator.pop(context);
+                  },
+                  activeColor: primary, // Use primary color
+                ),
+              ),
+              ListTile(
+                title: Text('Price: High to Low'),
+                leading: Radio(
+                  value: 'highToLow',
+                  groupValue: _sortOrder,
+                  onChanged: (String? value) {
+                    setState(() => _sortOrder = value!);
+                    Navigator.pop(context);
+                  },
+                  activeColor: primary, // Use primary color
+                ),
+              ),
+              ListTile(
+                title: Text('None'),
+                leading: Radio(
+                  value: 'none',
+                  groupValue: _sortOrder,
+                  onChanged: (String? value) {
+                    setState(() => _sortOrder = value!);
+                    Navigator.pop(context);
+                  },
+                  activeColor: primary, // Use primary color
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFilterDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Filter by Facilities',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _availableFacilities.length,
+                      itemBuilder: (context, index) {
+                        final facility = _availableFacilities[index];
+                        return CheckboxListTile(
+                          title: Text(facility),
+                          value: _selectedFacilities.contains(facility),
+                          onChanged: (bool? value) {
+                            setModalState(() {
+                              if (value!) {
+                                _selectedFacilities.add(facility);
+                              } else {
+                                _selectedFacilities.remove(facility);
+                              }
+                            });
+                          },
+                          activeColor: primary, // Use primary color for checkboxes
+                        );
+                      },
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _selectedFacilities.clear());
+                          Navigator.pop(context);
+                        },
+                        child: Text('Reset', style: TextStyle(color: Colors.red)),
+                      ),
+                      SizedBox(width: 16), // Add spacing between buttons
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          setState(() {});
+                        },
+                        child: Text('Apply', style: TextStyle(color: Colors.white)), // Set text color to white
+                        style: ElevatedButton.styleFrom(backgroundColor: primary), // Match background color
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  List<Map<String, dynamic>> getFilteredHostels() {
+    List<Map<String, dynamic>> filtered = hostelProperties.where((hostel) {
+      final matchesSearch = hostel['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          hostel['location'].toLowerCase().contains(_searchQuery.toLowerCase());
+      final hasFacilities = _selectedFacilities.every((f) =>
+      (hostel['facilities'] as List?)?.contains(f) ?? false);
+      return matchesSearch && hasFacilities;
+    }).toList();
+
+    if (_sortOrder == 'lowToHigh') {
+      filtered.sort((a, b) => _parsePrice(a['price']).compareTo(_parsePrice(b['price'])));
+    } else if (_sortOrder == 'highToLow') {
+      filtered.sort((b, a) => _parsePrice(a['price']).compareTo(_parsePrice(b['price'])));
+    }
+
+    return filtered;
+  }
+
+  List<Map<String, dynamic>> getFilteredFlats() {
+    List<Map<String, dynamic>> filtered = flatProperties.where((flat) {
+      final matchesSearch = flat['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          flat['location'].toLowerCase().contains(_searchQuery.toLowerCase());
+      final hasFacilities = _selectedFacilities.every((f) =>
+      (flat['facilities'] as List?)?.contains(f) ?? false);
+      return matchesSearch && hasFacilities;
+    }).toList();
+
+    if (_sortOrder == 'lowToHigh') {
+      filtered.sort((a, b) => _parsePrice(a['price']).compareTo(_parsePrice(b['price'])));
+    } else if (_sortOrder == 'highToLow') {
+      filtered.sort((b, a) => _parsePrice(a['price']).compareTo(_parsePrice(b['price'])));
+    }
+
+    return filtered;
+  }
+
   Future<void> fetchRoommates() async {
     try {
       QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('users').get();
       List<Map<String, dynamic>> fetchedRoommates = snapshot.docs.map((doc) {
         var data = doc.data() as Map<String, dynamic>;
-        return {
-          'userId': doc.id,
-          ...data,
-        };
+        return {'userId': doc.id, ...data};
       }).toList();
 
       if (mounted) {
@@ -93,31 +257,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     } catch (e) {
       print('Error fetching roommates: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // Method to filter hostel properties based on search query
-  List<Map<String, dynamic>> getFilteredHostels() {
-    return hostelProperties.where((hostel) {
-      return hostel['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          hostel['location'].toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-  }
-
-  // Method to filter flat properties based on search query
-  List<Map<String, dynamic>> getFilteredFlats() {
-    return flatProperties.where((flat) {
-      return flat['title'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          flat['location'].toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
-  }
-
-  // Method to filter roommates based on search query
   List<Map<String, dynamic>> getFilteredRoommates() {
     return roommates.where((roommate) {
       return roommate['name'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -129,18 +272,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final Color primary = Color(0xFF6B9080); // Same primary color
-    final Color surface = Color(0xFFF8F9FA); // Same background color
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'CROOM',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: Text('CROOM', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.black54),
@@ -148,13 +282,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           builder: (BuildContext context) {
             return IconButton(
               icon: Icon(Icons.menu),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
+              onPressed: () => Scaffold.of(context).openDrawer(),
             );
           },
         ),
         actions: [
+          IconButton(icon: Icon(Icons.sort, color: primary), onPressed: _showSortDialog),
+          IconButton(icon: Icon(Icons.filter_list, color: primary), onPressed: _showFilterDialog),
           IconButton(
             icon: Icon(_isSearching ? Icons.close : Icons.search),
             onPressed: () {
@@ -170,9 +304,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: primary, // Use primary color for tab indicator
-          labelColor: primary, // Use primary color for selected tab text
-          unselectedLabelColor: Colors.black54, // Use grey for unselected tabs
+          indicatorColor: primary,
+          labelColor: primary,
+          unselectedLabelColor: Colors.black54,
           tabs: [
             Tab(text: 'Hostel'),
             Tab(text: 'Flats'),
@@ -185,31 +319,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: BoxDecoration(color: primary), // Use primary color
-              child: Text(
-                'Menu',
-                style: TextStyle(color: Colors.white, fontSize: 24),
-              ),
+              decoration: BoxDecoration(color: primary),
+              child: Text('Menu', style: TextStyle(color: Colors.white, fontSize: 24)),
             ),
             ListTile(
               leading: Icon(Icons.person, color: primary),
               title: Text('Profile'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfileScreen()),
-                );
-              },
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileScreen())),
             ),
             ListTile(
               leading: Icon(Icons.favorite, color: primary),
               title: Text('Saved Property'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SavedPropertiesScreen()),
-                );
-              },
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SavedPropertiesScreen())),
             ),
             ListTile(
               leading: Icon(Icons.arrow_upward, color: primary),
@@ -219,22 +340,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ListTile(
               leading: Icon(Icons.help, color: primary),
               title: Text('FAQ'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => FAQScreen()),
-                );
-              },
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => FAQScreen())),
             ),
             ListTile(
               leading: Icon(Icons.contact_mail, color: primary),
               title: Text('Contact Us'),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ContactUsScreen()),
-                );
-              },
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ContactUsScreen())),
             ),
             ListTile(
               leading: Icon(Icons.settings, color: primary),
@@ -245,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
       ),
       body: Container(
-        color: surface, // Set background color
+        color: surface,
         child: Column(
           children: [
             if (_isSearching)
@@ -255,20 +366,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Search...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     filled: true,
                     fillColor: Colors.white,
                     prefixIcon: Icon(Icons.search, color: primary),
                     contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   ),
-                  onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                    });
-                  },
+                  onChanged: (value) => setState(() => _searchQuery = value),
                 ),
               ),
             Expanded(
@@ -276,51 +380,65 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 controller: _tabController,
                 children: [
                   ListView.builder(
-                    itemCount: _isSearching ? getFilteredHostels().length : hostelProperties.length,
+                    itemCount: getFilteredHostels().length,
                     itemBuilder: (context, index) {
-                      final hostel = _isSearching ? getFilteredHostels()[index] : hostelProperties[index];
+                      final hostel = getFilteredHostels()[index];
                       return GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PropertyScreen(
-                                propertyId: hostel['propertyId']!,
-                                property: hostel,
+                          if (hostel['propertyId'] != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PropertyScreen(
+                                  propertyId: hostel['propertyId'],
+                                  property: hostel,
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            // Handle the case where propertyId is null
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Property ID is missing')),
+                            );
+                          }
                         },
                         child: PropertyCard(
-                          title: hostel['title']!,
-                          price: hostel['price']!,
-                          location: hostel['location']!,
-                          imageUrl: hostel['imageUrl']!,
+                          title: hostel['title'] ?? 'No Title',
+                          price: hostel['price'] ?? 'Price Not Available',
+                          location: hostel['location'] ?? 'Location Not Specified',
+                          imageUrl: hostel['imageUrl'] ?? 'https://via.placeholder.com/150',
                         ),
                       );
                     },
                   ),
                   ListView.builder(
-                    itemCount: _isSearching ? getFilteredFlats().length : flatProperties.length,
+                    itemCount: getFilteredFlats().length,
                     itemBuilder: (context, index) {
-                      final flat = _isSearching ? getFilteredFlats()[index] : flatProperties[index];
+                      final flat = getFilteredFlats()[index];
                       return GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PropertyScreen(
-                                propertyId: flat['propertyId']!,
-                                property: flat,
+                          if (flat['propertyId'] != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PropertyScreen(
+                                  propertyId: flat['propertyId'],
+                                  property: flat,
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            // Handle the case where propertyId is null
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Property ID is missing')),
+                            );
+                          }
                         },
                         child: PropertyCard(
-                          title: flat['title']!,
-                          price: flat['price']!,
-                          location: flat['location']!,
-                          imageUrl: flat['imageUrl']!,
+                          title: flat['title'] ?? 'No Title',
+                          price: flat['price'] ?? 'Price Not Available',
+                          location: flat['location'] ?? 'Location Not Specified',
+                          imageUrl: flat['imageUrl'] ?? 'https://via.placeholder.com/150',
                         ),
                       );
                     },
@@ -328,27 +446,29 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   _isLoading
                       ? Center(child: CircularProgressIndicator(color: primary))
                       : ListView.builder(
-                    itemCount: _isSearching ? getFilteredRoommates().length : roommates.length,
+                    itemCount: getFilteredRoommates().length,
                     itemBuilder: (context, index) {
-                      final roommate = _isSearching ? getFilteredRoommates()[index] : roommates[index];
+                      final roommate = getFilteredRoommates()[index];
                       return GestureDetector(
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => RoommateScreen(
-                                userId: roommate['userId']!,
+                          if (roommate['userId'] != null) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => RoommateScreen(userId: roommate['userId']),
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('User ID is missing')),
+                            );
+                          }
                         },
                         child: Card(
                           margin: EdgeInsets.all(8),
                           elevation: 3,
-                          color: Color(0xFFF8F9FA), // Set the background color here
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          color: Color(0xFFF8F9FA),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           child: ListTile(
                             contentPadding: EdgeInsets.all(10),
                             leading: CircleAvatar(
@@ -356,10 +476,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               backgroundImage: NetworkImage(
                                   roommate['profileImage'] ?? 'https://via.placeholder.com/150'),
                             ),
-                            title: Text(
-                              roommate['name'] ?? 'Unknown',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
+                            title: Text(roommate['name'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Text('${roommate['age']} • ${roommate['college']}'),
                             trailing: Icon(Icons.arrow_forward_ios, size: 16, color: primary),
                           ),
