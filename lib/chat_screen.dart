@@ -21,13 +21,28 @@ class _ChatScreenState extends State<ChatScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ScrollController _scrollController = ScrollController();
 
+  @override
+  void initState() {
+    super.initState();
+    _resetUnreadCount();
+  }
+
   String get _chatDocId {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return '';
 
-    // Create a consistent chat document ID regardless of who starts the chat
     List<String> ids = [currentUser.uid, widget.roomateId]..sort();
     return '${ids[0]}_${ids[1]}';
+  }
+
+  Future<void> _resetUnreadCount() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    await _firestore.collection('chats').doc(_chatDocId).update({
+      'unreadCount': 0,
+      'lastMessageReadBy': FieldValue.arrayUnion([currentUser.uid])
+    });
   }
 
   void _sendMessage() async {
@@ -37,16 +52,34 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    await _firestore
+    final batch = _firestore.batch();
+
+    // Add the message
+    final messageRef = _firestore
         .collection('chats')
         .doc(_chatDocId)
         .collection('messages')
-        .add({
+        .doc();
+
+    batch.set(messageRef, {
       'text': message,
       'senderId': currentUser.uid,
       'timestamp': FieldValue.serverTimestamp(),
       'senderName': currentUser.displayName ?? 'User',
     });
+
+    // Update the chat document with last message info and increment unread count
+    final chatRef = _firestore.collection('chats').doc(_chatDocId);
+    batch.set(chatRef, {
+      'lastMessage': message,
+      'lastMessageTime': FieldValue.serverTimestamp(),
+      'lastMessageSenderId': currentUser.uid,
+      'participantIds': [currentUser.uid, widget.roomateId],
+      'unreadCount': FieldValue.increment(1),
+      'lastMessageReadBy': [currentUser.uid]  // Only sender has read the message
+    }, SetOptions(merge: true));
+
+    await batch.commit();
 
     _messageController.clear();
     _scrollToBottom();
@@ -69,6 +102,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.roommateName),
+        backgroundColor: Color(0xFF6B9080),
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -82,7 +117,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return Center(child: CircularProgressIndicator());
+                  return Center(child: CircularProgressIndicator(
+                    color: Color(0xFF6B9080),
+                  ));
                 }
 
                 var messages = snapshot.data!.docs;
@@ -91,6 +128,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   controller: _scrollController,
                   reverse: true,
                   itemCount: messages.length,
+                  padding: EdgeInsets.all(16),
                   itemBuilder: (context, index) {
                     var message = messages[index].data() as Map<String, dynamic>;
                     final isCurrentUser = message['senderId'] ==
@@ -101,18 +139,25 @@ class _ChatScreenState extends State<ChatScreen> {
                           ? Alignment.centerRight
                           : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.symmetric(
-                            vertical: 4,
-                            horizontal: 8
+                        margin: EdgeInsets.only(
+                          bottom: 8,
+                          left: isCurrentUser ? 64 : 0,
+                          right: isCurrentUser ? 0 : 64,
                         ),
-                        padding: const EdgeInsets.all(12),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
                           color: isCurrentUser
-                              ? Colors.blue[100]
+                              ? Color(0xFF6B9080)
                               : Colors.grey[200],
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(message['text']),
+                        child: Text(
+                          message['text'],
+                          style: TextStyle(
+                            color: isCurrentUser ? Colors.white : Colors.black87,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -120,8 +165,18 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: Offset(0, -5),
+                )
+              ],
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -130,15 +185,32 @@ class _ChatScreenState extends State<ChatScreen> {
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: BorderSide(
+                          color: Color(0xFF6B9080),
+                          width: 2,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(25),
+                        borderSide: BorderSide(
+                          color: Color(0xFF6B9080),
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 FloatingActionButton(
                   onPressed: _sendMessage,
-                  child: const Icon(Icons.send),
+                  child: Icon(Icons.send),
+                  backgroundColor: Color(0xFF6B9080),
+                  elevation: 2,
                 ),
               ],
             ),

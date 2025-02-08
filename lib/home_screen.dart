@@ -1,6 +1,8 @@
+import 'package:croom2/chat_dashboard_screen.dart';
 import 'package:croom2/contact_us_screen.dart';
 import 'package:croom2/profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'faq_screen.dart';
 import 'property_card.dart';
@@ -27,7 +29,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // Sorting/Filtering state
   String _sortOrder = 'none';
   List<String> _selectedFacilities = [];
   List<String> _availableFacilities = [];
@@ -38,6 +39,27 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _tabController = TabController(length: 3, vsync: this);
     fetchProperties();
     fetchRoommates();
+  }
+
+  Stream<int> getTotalUnreadCount() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return Stream.value(0);
+
+    return FirebaseFirestore.instance
+        .collection('chats')
+        .where('participantIds', arrayContains: currentUser.uid)
+        .snapshots()
+        .map((snapshot) {
+      int total = 0;
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final lastMessageSenderId = data['lastMessageSenderId'];
+        if (lastMessageSenderId != currentUser.uid) {
+          total += (data['unreadCount'] ?? 0) as int;
+        }
+      }
+      return total;
+    });
   }
 
   int _parsePrice(String price) {
@@ -274,7 +296,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('CROOM', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
+        title: Text('CROOM',
+            style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.black54),
@@ -287,8 +311,56 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           },
         ),
         actions: [
-          IconButton(icon: Icon(Icons.sort, color: primary), onPressed: _showSortDialog),
-          IconButton(icon: Icon(Icons.filter_list, color: primary), onPressed: _showFilterDialog),
+          IconButton(
+              icon: Icon(Icons.sort, color: primary),
+              onPressed: _showSortDialog
+          ),
+          IconButton(
+              icon: Icon(Icons.filter_list, color: primary),
+              onPressed: _showFilterDialog
+          ),
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.chat, color: primary),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ChatDashboardScreen()),
+                ),
+              ),
+              StreamBuilder<int>(
+                stream: getTotalUnreadCount(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || snapshot.data == 0) {
+                    return SizedBox.shrink();
+                  }
+                  return Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      constraints: BoxConstraints(
+                        minWidth: 14,
+                        minHeight: 14,
+                      ),
+                      child: Text(
+                        '${snapshot.data}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
           IconButton(
             icon: Icon(_isSearching ? Icons.close : Icons.search),
             onPressed: () {
