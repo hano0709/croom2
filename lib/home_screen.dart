@@ -2,6 +2,7 @@ import 'package:croom2/chat_dashboard_screen.dart';
 import 'package:croom2/contact_us_screen.dart';
 import 'package:croom2/profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:croom2/upgrade_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'faq_screen.dart';
@@ -407,7 +408,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ListTile(
               leading: Icon(Icons.arrow_upward, color: primary),
               title: Text('Upgrade'),
-              onTap: () {},
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => UpgradeScreen()),
+              ),
             ),
             ListTile(
               leading: Icon(Icons.help, color: primary),

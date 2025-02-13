@@ -1,3 +1,4 @@
+import 'package:croom2/upgrade_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -45,9 +46,64 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<bool> _checkMessageCredits() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final messagesLeft = doc.data()?['messages_left'] ?? 0;
+
+    if (messagesLeft <= 0) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('No Messages Left'),
+          content: Text('Please purchase more messages to continue chatting.'),
+          actions: [
+            TextButton(
+              child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Color(0xFF6B9080),
+                  ),
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            TextButton(
+              child: Text(
+                  'Purchase',
+                  style: TextStyle(
+                    color: Color(0xFF6B9080),
+                  ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => UpgradeScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+
+    // Deduct one message
+    await _firestore.collection('users').doc(user.uid).update({
+      'messages_left': FieldValue.increment(-1)
+    });
+
+    return true;
+  }
+
   void _sendMessage() async {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
+
+    final hasCredits = await _checkMessageCredits();
+    if (!hasCredits) return;
 
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;

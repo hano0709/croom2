@@ -1,3 +1,4 @@
+import 'package:croom2/upgrade_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -99,15 +100,95 @@ class _PropertyScreenState extends State<PropertyScreen> {
     }
   }
 
+  Future<bool> _checkCallCredits() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final callsLeft = doc.data()?['calls_left'] ?? 0;
+
+    if (callsLeft <= 0) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('No Calls Left'),
+          content: Text('Please purchase more calls to continue.'),
+          actions: [
+            TextButton(
+              child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Color(0xFF6B9080),
+                  ),
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            TextButton(
+              child: Text(
+                  'Purchase',
+                  style: TextStyle(
+                    color: Color(0xFF6B9080),
+                  ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => UpgradeScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+
+    bool confirmCall = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirm Call'),
+        content: Text('You have $callsLeft calls left. Do you want to make this call?'),
+        actions: [
+          TextButton(
+            child: Text('Cancel'),
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          TextButton(
+            child: Text('Call'),
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirmCall) return false;
+
+    // Deduct one call
+    await _firestore.collection('users').doc(user.uid).update({
+      'calls_left': FieldValue.increment(-1)
+    });
+
+    return true;
+  }
+
   Future<void> _makeCall(String phoneNumber) async {
-    final Uri callUri = Uri.parse("tel:$phoneNumber");
     try {
+      final Uri callUri = Uri.parse("tel:$phoneNumber");
+      final user = _auth.currentUser;
+
       if (await canLaunchUrl(callUri)) {
         await launchUrl(callUri, mode: LaunchMode.externalApplication);
       } else {
-        print("Could not launch call");
+        throw "Could not launch call";
       }
     } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error making call: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
       print("Error launching call: $e");
     }
   }
@@ -215,10 +296,37 @@ class _PropertyScreenState extends State<PropertyScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () {
+                        onPressed: () async {
                           String phone = propertyData?['phone'] ?? '';
                           if (phone.isNotEmpty) {
-                            _makeCall(phone);
+                            // First check if user has available credits
+                            final canCall = await _checkCallCredits();
+                            if (canCall) {
+                              try {
+                                await _makeCall(phone);
+                              } catch (e) {
+                                // If call fails, refund the credit
+                                final user = _auth.currentUser;
+                                if (user != null) {
+                                  await _firestore.collection('users').doc(user.uid).update({
+                                    'calls_left': FieldValue.increment(1)
+                                  });
+                                }
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Failed to make call. Credit has been refunded.'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Phone number not available'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
                           }
                         },
                         icon: Icon(Icons.call),
