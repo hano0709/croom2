@@ -271,7 +271,12 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
             children: amounts.map((amount) =>
                 Padding(
                   padding: EdgeInsets.only(right: 12),
-                  child: _buildPurchaseOption(type, amount, amount * 10),
+                  // Update price calculation here
+                  child: _buildPurchaseOption(
+                      type,
+                      amount,
+                      type == 'calls' ? amount * 10 : amount // ₹10 per call, ₹1 per message
+                  ),
                 )
             ).toList(),
           ),
