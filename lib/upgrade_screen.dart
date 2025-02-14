@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 class UpgradeScreen extends StatefulWidget {
   @override
@@ -8,6 +9,10 @@ class UpgradeScreen extends StatefulWidget {
 }
 
 class _UpgradeScreenState extends State<UpgradeScreen> {
+  var _razorpay = Razorpay();
+  String? _pendingPurchaseType;
+  int? _pendingPurchaseAmount;
+
   final Color primary = Color(0xFF6B9080);
   final Color surface = Color(0xFFF8F9FA);
 
@@ -17,7 +22,102 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
   @override
   void initState() {
     super.initState();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     _loadUserCredits();
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    // Update Firestore only after successful payment
+    if (_pendingPurchaseType != null && _pendingPurchaseAmount != null) {
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+          if (_pendingPurchaseType == 'calls') {
+            await userRef.update({'calls_left': FieldValue.increment(_pendingPurchaseAmount!)});
+            setState(() => callsLeft += _pendingPurchaseAmount!);
+          } else {
+            await userRef.update({'messages_left': FieldValue.increment(_pendingPurchaseAmount!)});
+            setState(() => messagesLeft += _pendingPurchaseAmount!);
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Purchase successful! Added $_pendingPurchaseAmount ${_pendingPurchaseType == "calls" ? "calls" : "messages"}'),
+              backgroundColor: primary,
+            ),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating credits. Please contact support.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+    // Clear pending purchase
+    _pendingPurchaseType = null;
+    _pendingPurchaseAmount = null;
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment failed: ${response.message ?? "Unknown error"}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    // Clear pending purchase
+    _pendingPurchaseType = null;
+    _pendingPurchaseAmount = null;
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('External wallet selected: ${response.walletName}'),
+        backgroundColor: primary,
+      ),
+    );
+  }
+
+  void _initiatePayment(String type, int amount, int price) {
+    var options = {
+      'key': 'rzp_test_UtgyctmGrUNtf4',  // Replace with your Razorpay key
+      'amount': price * 100, // Razorpay expects amount in paise
+      'name': 'Your App Name',
+      'description': '$amount ${type == "calls" ? "Calls" : "Messages"} Purchase',
+      'prefill': {
+        'contact': '',
+        'email': FirebaseAuth.instance.currentUser?.email ?? '',
+      }
+    };
+
+    // Store purchase details for after payment success
+    _pendingPurchaseType = type;
+    _pendingPurchaseAmount = amount;
+
+    try {
+      _razorpay.open(options);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error initiating payment. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
   }
 
   Future<void> _loadUserCredits() async {
@@ -82,7 +182,7 @@ class _UpgradeScreenState extends State<UpgradeScreen> {
 
   Widget _buildPurchaseOption(String type, int amount, int price) {
     return GestureDetector(
-      onTap: () => _purchaseCredits(type, amount, price),
+      onTap: () => _initiatePayment(type, amount, price),
       child: Container(
         width: 120,
         height: 90, // Increased height

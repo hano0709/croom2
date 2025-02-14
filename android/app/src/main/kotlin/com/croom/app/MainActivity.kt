@@ -1,4 +1,4 @@
-package com.example.croom2
+package com.croom.app
 
 import io.flutter.embedding.android.FlutterActivity
 

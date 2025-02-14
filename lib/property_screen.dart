@@ -151,11 +151,21 @@ class _PropertyScreenState extends State<PropertyScreen> {
         content: Text('You have $callsLeft calls left. Do you want to make this call?'),
         actions: [
           TextButton(
-            child: Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Color(0xFF6B9080),
+              ),
+            ),
             onPressed: () => Navigator.pop(context, false),
           ),
           TextButton(
-            child: Text('Call'),
+            child: Text(
+              'Call',
+              style: TextStyle(
+                color: Color(0xFF6B9080),
+              ),
+            ),
             onPressed: () => Navigator.pop(context, true),
           ),
         ],
