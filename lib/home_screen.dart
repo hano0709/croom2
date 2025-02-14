@@ -455,110 +455,134 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  ListView.builder(
-                    itemCount: getFilteredHostels().length,
-                    itemBuilder: (context, index) {
-                      final hostel = getFilteredHostels()[index];
-                      return GestureDetector(
-                        onTap: () {
-                          if (hostel['propertyId'] != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PropertyScreen(
-                                  propertyId: hostel['propertyId'],
-                                  property: hostel,
-                                ),
-                              ),
-                            );
-                          } else {
-                            // Handle the case where propertyId is null
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Property ID is missing')),
-                            );
-                          }
-                        },
-                        child: PropertyCard(
-                          title: hostel['title'] ?? 'No Title',
-                          price: hostel['price'] ?? 'Price Not Available',
-                          location: hostel['location'] ?? 'Location Not Specified',
-                          imageUrl: hostel['imageUrl'] ?? 'https://via.placeholder.com/150',
-                        ),
-                      );
-                    },
-                  ),
-                  ListView.builder(
-                    itemCount: getFilteredFlats().length,
-                    itemBuilder: (context, index) {
-                      final flat = getFilteredFlats()[index];
-                      return GestureDetector(
-                        onTap: () {
-                          if (flat['propertyId'] != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => PropertyScreen(
-                                  propertyId: flat['propertyId'],
-                                  property: flat,
-                                ),
-                              ),
-                            );
-                          } else {
-                            // Handle the case where propertyId is null
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Property ID is missing')),
-                            );
-                          }
-                        },
-                        child: PropertyCard(
-                          title: flat['title'] ?? 'No Title',
-                          price: flat['price'] ?? 'Price Not Available',
-                          location: flat['location'] ?? 'Location Not Specified',
-                          imageUrl: flat['imageUrl'] ?? 'https://via.placeholder.com/150',
-                        ),
-                      );
-                    },
-                  ),
-                  _isLoading
-                      ? Center(child: CircularProgressIndicator(color: primary))
-                      : ListView.builder(
-                    itemCount: getFilteredRoommates().length,
-                    itemBuilder: (context, index) {
-                      final roommate = getFilteredRoommates()[index];
-                      return GestureDetector(
-                        onTap: () {
-                          if (roommate['userId'] != null) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => RoommateScreen(userId: roommate['userId']),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('User ID is missing')),
-                            );
-                          }
-                        },
-                        child: Card(
-                          margin: EdgeInsets.all(8),
-                          elevation: 3,
-                          color: Color(0xFFF8F9FA),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          child: ListTile(
-                            contentPadding: EdgeInsets.all(10),
-                            leading: CircleAvatar(
-                              radius: 30,
-                              backgroundImage: NetworkImage(
-                                  roommate['profileImage'] ?? 'https://via.placeholder.com/150'),
+                  RefreshIndicator(
+                      onRefresh: fetchProperties,
+                      child: ListView.builder(
+                        itemCount: getFilteredHostels().length,
+                        itemBuilder: (context, index) {
+                          final hostel = getFilteredHostels()[index];
+                          return GestureDetector(
+                            onTap: () {
+                              if (hostel['propertyId'] != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PropertyScreen(
+                                      propertyId: hostel['propertyId'],
+                                      property: hostel,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                // Handle the case where propertyId is null
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Property ID is missing')),
+                                );
+                              }
+                            },
+                            child: PropertyCard(
+                              title: hostel['title'] ?? 'No Title',
+                              price: hostel['price'] ?? 'Price Not Available',
+                              location: hostel['location'] ?? 'Location Not Specified',
+                              imageUrl: hostel['imageUrl'] ?? 'https://via.placeholder.com/150',
                             ),
-                            title: Text(roommate['name'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('${roommate['age']} • ${roommate['college']}'),
-                            trailing: Icon(Icons.arrow_forward_ios, size: 16, color: primary),
+                          );
+                        },
+                      ),
+                  ),
+
+
+                  RefreshIndicator(
+                      onRefresh: fetchProperties,
+                      child: ListView.builder(
+                        itemCount: getFilteredFlats().length,
+                        itemBuilder: (context, index) {
+                          final flat = getFilteredFlats()[index];
+                          return GestureDetector(
+                            onTap: () {
+                              if (flat['propertyId'] != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PropertyScreen(
+                                      propertyId: flat['propertyId'],
+                                      property: flat,
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                // Handle the case where propertyId is null
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Property ID is missing')),
+                                );
+                              }
+                            },
+                            child: PropertyCard(
+                              title: flat['title'] ?? 'No Title',
+                              price: flat['price'] ?? 'Price Not Available',
+                              location: flat['location'] ?? 'Location Not Specified',
+                              imageUrl: flat['imageUrl'] ?? 'https://via.placeholder.com/150',
+                            ),
+                          );
+                        },
+                      ),
+                  ),
+
+
+                  RefreshIndicator(
+                    onRefresh: fetchRoommates,
+                    child: _isLoading
+                        ? ListView(
+                      physics: AlwaysScrollableScrollPhysics(),
+                      children: [
+                        Container(
+                          height: MediaQuery.of(context).size.height,
+                          child: Center(
+                            child: CircularProgressIndicator(color: primary),
                           ),
                         ),
-                      );
-                    },
+                      ],
+                    )
+                        : ListView.builder(
+                      physics: AlwaysScrollableScrollPhysics(),
+                      itemCount: getFilteredRoommates().length,
+                      itemBuilder: (context, index) {
+                        final roommate = getFilteredRoommates()[index];
+                        return GestureDetector(
+                          onTap: () {
+                            if (roommate['userId'] != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => RoommateScreen(userId: roommate['userId']),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('User ID is missing')),
+                              );
+                            }
+                          },
+                          child: Card(
+                            margin: EdgeInsets.all(8),
+                            elevation: 3,
+                            color: Color(0xFFF8F9FA),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            child: ListTile(
+                              contentPadding: EdgeInsets.all(10),
+                              leading: CircleAvatar(
+                                radius: 30,
+                                backgroundImage: NetworkImage(
+                                    roommate['profileImage'] ?? 'https://via.placeholder.com/150'),
+                              ),
+                              title: Text(roommate['name'] ?? 'Unknown', style: TextStyle(fontWeight: FontWeight.bold)),
+                              subtitle: Text('${roommate['age']} • ${roommate['college']}'),
+                              trailing: Icon(Icons.arrow_forward_ios, size: 16, color: primary),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
