@@ -423,11 +423,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               title: Text('Contact Us'),
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ContactUsScreen())),
             ),
-            ListTile(
-              leading: Icon(Icons.settings, color: primary),
-              title: Text('Settings'),
-              onTap: () {},
-            ),
           ],
         ),
       ),
