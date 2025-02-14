@@ -1,3 +1,4 @@
+import 'package:croom2/be_landlord_screen.dart';
 import 'package:croom2/chat_dashboard_screen.dart';
 import 'package:croom2/contact_us_screen.dart';
 import 'package:croom2/profile_screen.dart';
@@ -422,6 +423,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               leading: Icon(Icons.contact_mail, color: primary),
               title: Text('Contact Us'),
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ContactUsScreen())),
+            ),
+            ListTile(
+              leading: Icon(Icons.work, color: primary),
+              title: Text('Be a Landlord'),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => BeLandlordScreen())),
             ),
           ],
         ),
