@@ -275,6 +275,7 @@ class _PropertyScreenState extends State<PropertyScreen> {
                     _buildSection('Property Details', Icons.home_outlined, primary),
                     _buildDetailTile('Location', propertyData?['location'] ?? 'N/A', Icons.location_on, primary),
                     _buildDetailTile('Type', propertyData?['type'] ?? 'N/A', Icons.apartment, primary),
+                    _buildDetailTile('Occupancies Left', (propertyData?['occupancy']?.toString() ?? 'N/A'), Icons.accessibility_new_rounded, primary),
 
                     SizedBox(height: 24),
 
