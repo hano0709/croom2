@@ -27,36 +27,12 @@ class RoommateScreen extends StatelessWidget {
           return CustomScrollView(
             slivers: [
               SliverAppBar(
-                expandedHeight: 280,
+                expandedHeight: 230,
                 pinned: true,
                 backgroundColor: Colors.white,
                 flexibleSpace: FlexibleSpaceBar(
-                  titlePadding: EdgeInsetsDirectional.only(start: 0, bottom: 16),
-                  centerTitle: true,
-                  title: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(height: 100),
-                      Text(
-                        roommate['name'] ?? 'Unknown',
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 24,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        roommate['college'] ?? 'Unknown College',
-                        style: TextStyle(
-                          color: Colors.black54,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
                   background: Container(
-                    color: primary.withOpacity(0.1),
+                    color: surface,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
@@ -64,7 +40,7 @@ class RoommateScreen extends StatelessWidget {
                           top: 80,
                           child: CircleAvatar(
                             radius: 80,
-                            backgroundColor: primary.withOpacity(0.2),
+                            backgroundColor: primary,
                             child: CircleAvatar(
                               radius: 76,
                               backgroundImage: NetworkImage(
@@ -76,6 +52,29 @@ class RoommateScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    SizedBox(height: 0), // Adjust spacing
+                    Text(
+                      roommate['name'] ?? 'Unknown',
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 24,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      roommate['college'] ?? 'Unknown College',
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               SliverPadding(
